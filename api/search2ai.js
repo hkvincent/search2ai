@@ -15,13 +15,13 @@ const corsHeaders = {
 };
 async function handleRequest(req, res, apiBase, apiKey) {
     let responseSent = false;
-        if (req.method !== 'POST') {
-            console.log(`不支持的请求方法: ${req.method}`);
-            res.statusCode = 405;
-            res.end('Method Not Allowed');
-            responseSent = true;
-            return;
-        }
+    if (req.method !== 'POST') {
+        console.log(`不支持的请求方法: ${req.method}`);
+        res.statusCode = 405;
+        res.end('Method Not Allowed');
+        responseSent = true;
+        return;
+    }
     const requestData = req.body;
     console.log('请求数据:', requestData);
     console.log('API base:', apiBase);
@@ -35,8 +35,8 @@ async function handleRequest(req, res, apiBase, apiKey) {
 
     const body = JSON.stringify({
         model: model,
-        messages: requestData.messages, 
-        max_tokens: maxTokens, 
+        messages: requestData.messages,
+        max_tokens: maxTokens,
         ...(isContentArray ? {} : {
             tools: [
                 {
@@ -47,7 +47,7 @@ async function handleRequest(req, res, apiBase, apiKey) {
                         parameters: {
                             type: "object",
                             properties: {
-                                query: { type: "string","description": "The query to search."}
+                                query: { type: "string", "description": "The query to search." }
                             },
                             required: ["query"]
                         }
@@ -77,7 +77,8 @@ async function handleRequest(req, res, apiBase, apiKey) {
                             properties: {
                                 url: {
                                     type: "string",
-                                    description: "The URL of the webpage"},
+                                    description: "The URL of the webpage"
+                                },
                             },
                             required: ["url"],
                         }
@@ -123,7 +124,7 @@ async function handleRequest(req, res, apiBase, apiKey) {
         res.end('OpenAI 响应数据格式不正确');
         return { status: 500 };
     }
-    
+
     messages.push(data.choices[0].message);
     console.log('更新后的 messages 数组:', messages);
     // 检查是否有函数调用
@@ -135,7 +136,7 @@ async function handleRequest(req, res, apiBase, apiKey) {
         const availableFunctions = {
             "search": search,
             "news": news,
-            "crawler": crawler        
+            "crawler": crawler
         };
         for (const toolCall of toolCalls) {
             const functionName = toolCall.function.name;
@@ -149,11 +150,12 @@ async function handleRequest(req, res, apiBase, apiKey) {
             } else if (functionName === 'news') {
                 functionResponse = await functionToCall(functionArgs.query);
             }
+            console.log('function calling response: ', functionResponse);
             messages.push({
                 tool_call_id: toolCall.id,
                 role: "tool",
                 name: functionName,
-                content: functionResponse, 
+                content: functionResponse,
             });
             calledCustomFunction = true;
         }
@@ -183,10 +185,10 @@ async function handleRequest(req, res, apiBase, apiKey) {
                 console.log('返回流');
                 return {
                     status: secondResponse.status,
-                    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache',...corsHeaders },
+                    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', ...corsHeaders },
                     body: secondResponse.body
                 };
-            }else {
+            } else {
                 // 使用普通 JSON 格式
                 const data = await secondResponse.json();
                 res.statusCode = secondResponse.status;
@@ -199,7 +201,7 @@ async function handleRequest(req, res, apiBase, apiKey) {
                 res.statusCode = 500;
                 res.end('Internal Server Error');
                 responseSent = true;
-            } return;  
+            } return;
         }
     } else {
         // 没有调用自定义函数，直接返回原始回复
@@ -208,8 +210,10 @@ async function handleRequest(req, res, apiBase, apiKey) {
             // 使用 SSE 格式
             console.log('Using SSE format');
             const sseStream = jsonToStream(data);
-            res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache',
-            ...corsHeaders });
+            res.writeHead(200, {
+                'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache',
+                ...corsHeaders
+            });
 
             sseStream.on('data', (chunk) => {
                 res.write(chunk);
@@ -228,44 +232,46 @@ async function handleRequest(req, res, apiBase, apiKey) {
         console.log('Response sent');
         return { status: 200 };
     }
-        function jsonToStream(jsonData) {
-            const characters = Array.from(jsonData.choices[0].message.content);
-            let currentIndex = 0;
 
-            return new Stream.Readable({
-                read() {
-                    const pushData = () => {
-                        if (currentIndex < characters.length) {
-                            const character = characters[currentIndex];
-                            const newJsonData = {
-                                id: jsonData.id,
-                                object: 'chat.completion.chunk',
-                                created: jsonData.created,
-                                model: jsonData.model,
-                                choices: [
-                                    {
-                                        index: 0,
-                                        delta: {
-                                            content: character
-                                        },
-                                        logprobs: null,
-                                        finish_reason: currentIndex === characters.length - 1 ? 'stop' : null
-                                    }
-                                ],
-                                system_fingerprint: jsonData.system_fingerprint
-                            };
+    function jsonToStream(jsonData) {
+        const characters = Array.from(jsonData.choices[0].message.content);
+        let currentIndex = 0;
 
-                            const data = `data: ${JSON.stringify(newJsonData)}\n\n`;
-                            this.push(data, 'utf8');
-                            currentIndex++;
-                        } else {
-                            this.push('data: [DONE]\n\n', 'utf8');
-                            this.push(null);  // 结束流
-                        }
-                    };
+        return new Stream.Readable({
+            read() {
+                const pushData = () => {
+                    if (currentIndex < characters.length) {
+                        const character = characters[currentIndex];
+                        const newJsonData = {
+                            id: jsonData.id,
+                            object: 'chat.completion.chunk',
+                            created: jsonData.created,
+                            model: jsonData.model,
+                            choices: [
+                                {
+                                    index: 0,
+                                    delta: {
+                                        content: character
+                                    },
+                                    logprobs: null,
+                                    finish_reason: currentIndex === characters.length - 1 ? 'stop' : null
+                                }
+                            ],
+                            system_fingerprint: jsonData.system_fingerprint
+                        };
 
-                    setTimeout(pushData, 10);  // 延迟 0.01 秒
-                }
-            });
-        }}
+                        const data = `data: ${JSON.stringify(newJsonData)}\n\n`;
+                        this.push(data, 'utf8');
+                        currentIndex++;
+                    } else {
+                        this.push('data: [DONE]\n\n', 'utf8');
+                        this.push(null);  // 结束流
+                    }
+                };
+
+                setTimeout(pushData, 10);  // 延迟 0.01 秒
+            }
+        });
+    }
+}
 module.exports = handleRequest;

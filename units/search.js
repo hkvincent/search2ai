@@ -113,7 +113,7 @@ async function search(query) {
           link: item.url,
           snippet: item.content
         }));
-        console.log("searxng", results);
+        // console.log("searxng", results);
         break;
 
       default:
